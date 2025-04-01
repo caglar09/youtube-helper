@@ -1,0 +1,26 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Bu bir monorepo projedir. Mobile ve server katmanları vardır.
+
+Mobile project:
+
+    Bu proje bir webview projesidir. Webview içerisinde youtube.com adresi açılacaktır ve kullanıcı youtube üzerinde arama yapabilecektir. 
+
+    Özellikler:
+    1. Youtube üzerinde arama yapılabilmesi
+    2. Webview içerisinde js code inject edilerek her video elemanının yanına birer download butonu eklenmelidir. Bu download butonuna tıklandığında o video için postmessage ile
+        video'nun linki react-native'e gönderilmelidir.
+    3. İndirilmek istenen video linki başka bir api'ye istek atılarak cihaz hafızasına indirilecektir.
+
+Server project:
+
+    typescript kullanılacak. bir api servisidir. expressjs kullanılmalıdır. Mobile project içerisinde seçilen video linki buraya istek atılacak ve burada işlenecektir. Api içerisinde https://github.com/fent/node-ytdl-core kütüphanesi kullanılarak video'nun indirilmesi için gerekli işlemler yapılmalıdır.
+
+    gerekli enpointler:
+
+    1. indirilmek istenen video için indirme seçenekleri analiz edilip liste halinde indirilmelidir.
+    2. mobil taraftan seçilen indirme seçeneği ile ayrı bir endpointe gelindiğinde video seçilen formatta indirilmeli ve mobil tarafa dönülmelidir.
+    3. indirme işlemleri için mümkünse sunucuda veri saklanmasın.

@@ -1,0 +1,66 @@
+# YouTube Helper Projesi - V1
+
+## Proje Yapısı
+Bu proje bir monorepo yapısındadır ve iki ana katmandan oluşur:
+
+1. Mobile (React Native)
+2. Server (Express.js + TypeScript)
+
+## Mobile Katmanı
+
+### Özellikler
+1. WebView içerisinde YouTube mobil sitesi açılır
+2. Kullanıcı YouTube üzerinde arama yapabilir
+3. Video sayfasına girildiğinde sağ alt köşede indirme butonu görünür
+4. İndirme butonuna tıklandığında:
+   - Video bilgileri sunucudan alınır
+   - İndirme modalı açılır
+   - Kullanıcı video veya ses formatı seçebilir
+   - Seçilen formatta indirme başlar
+   - İndirilen dosya cihaz hafızasına kaydedilir
+
+### Bileşenler
+1. `index.tsx`: Ana ekran
+   - WebView yönetimi
+   - Navigasyon kontrolleri
+   - İndirme butonu
+   - İndirme modalı entegrasyonu
+
+2. `DownloadModal.tsx`: İndirme modalı
+   - Video ve ses formatlarını listeler
+   - Format seçimi
+   - İndirme durumu gösterimi
+
+3. `mediaService.ts`: Medya işlemleri
+   - Video bilgisi alma
+   - İndirme işlemleri
+   - Dosya yönetimi
+
+## Server Katmanı
+
+### Özellikler
+1. YouTube video bilgilerini alma
+2. Video ve ses formatlarını analiz etme
+3. Medya indirme işlemleri
+4. Geçici dosya yönetimi
+
+### Endpointler
+1. `/api/media-info`
+   - Video bilgilerini getirir
+   - Kullanılabilir formatları listeler
+   - Video detaylarını döner
+
+2. `/api/download`
+   - Seçilen formatta medyayı indirir
+   - Geçici dosya olarak saklar
+   - İndirme URL'si döner
+
+3. `/api/media/:fileName`
+   - Geçici dosyaları indirmek için
+   - İndirme tamamlandığında dosyayı siler
+
+### Güvenlik ve Performans
+1. Geçici dosyalar 1 saat sonra otomatik silinir
+2. CORS desteği
+3. Hata yönetimi
+4. Dosya boyutu kontrolleri
