@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 # YouTube Helper Projesi - V1
 
 ## Proje Yapısı
@@ -64,45 +69,3 @@ Bu proje bir monorepo yapısındadır ve iki ana katmandan oluşur:
 2. CORS desteği
 3. Hata yönetimi
 4. Dosya boyutu kontrolleri
-
-## V2 İçin Yapılacaklar
-1. WebView içerisinde video elemanlarının yanına indirme butonu ekleme
-2. JavaScript injection ile video listesini manipüle etme
-3. Video listesi üzerinden direkt indirme özelliği
-4. İndirme geçmişi
-5. İndirme kuyruğu
-6. Arka planda indirme desteği
-7. İndirme bildirimleri
-8. İndirme ayarları
-9. Video önizleme
-10. Video kalite seçenekleri
-11. Ses kalite seçenekleri
-12. İndirme konumu seçimi
-13. İndirme hızı göstergesi
-14. İndirme ilerleme çubuğu
-15. İndirme duraklatma/devam ettirme
-16. İndirme iptal etme
-17. İndirme yeniden deneme
-18. İndirme hata yönetimi
-19. İndirme başarı bildirimleri
-20. İndirme başarısız bildirimleri
-21. İndirme tamamlandı bildirimleri
-22. İndirme duraklatıldı bildirimleri
-23. İndirme devam etti bildirimleri
-24. İndirme iptal edildi bildirimleri
-25. İndirme yeniden denendi bildirimleri
-26. İndirme hatası bildirimleri
-27. İndirme başarısız bildirimleri
-28. İndirme tamamlandı bildirimleri
-29. İndirme duraklatıldı bildirimleri
-30. İndirme devam etti bildirimleri
-31. İndirme iptal edildi bildirimleri
-32. İndirme yeniden denendi bildirimleri
-33. İndirme hatası bildirimleri
-34. İndirme başarısız bildirimleri
-35. İndirme tamamlandı bildirimleri
-36. İndirme duraklatıldı bildirimleri
-37. İndirme devam etti bildirimleri
-38. İndirme iptal edildi bildirimleri
-39. İndirme yeniden denendi bildirimleri
-40. İndirme hatası bildirimleri 
