@@ -5,6 +5,21 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
+interface FormatInfo {
+  itag: number;
+  quality?: string;
+  qualityLabel?: string;
+  audioQuality?: string;
+  mimeType: string;
+  contentLength: string;
+  hasAudio: boolean;
+  hasVideo: boolean;
+  container: string;
+  bitrate?: number;
+  fps?: number;
+  audioBitrate?: number;
+}
+
 const app = express();
 const port = 3000;
 
@@ -114,14 +129,11 @@ app.post('/api/media-info', async (req, res) => {
   }
 });
 
-// Medyayı indir ve geçici dosya olarak sakla
-app.post('/api/download', async (req, res) => {
-  let fileStream: fs.WriteStream | null = null;
-  let tempFilePath: string | null = null;
-
+// Medya URL'si al
+app.post('/api/media-url', async (req, res) => {
   try {
     const { mediaUrl, itag, mediaType } = req.body;
-    console.log('İndirme isteği alındı:', { mediaUrl, itag, mediaType });
+    console.log('Medya URL isteği alındı:', { mediaUrl, itag, mediaType });
 
     if (!ytdl.validateURL(mediaUrl)) {
       return res.status(400).json({
@@ -133,44 +145,38 @@ app.post('/api/download', async (req, res) => {
     const info = await ytdl.getInfo(mediaUrl);
     console.log('Video bilgileri alındı:', info.videoDetails.title);
 
-    const format = info.formats.find(f => f.itag === parseInt(itag));
-    console.log('Seçilen format:', format);
+    // Formatı bul (video veya ses)
+    const formats = info.formats;
+    let selectedFormat: ytdl.videoFormat | undefined = undefined;
 
-    if (!format) {
+    if (mediaType === 'video') {
+      // Video formatı için hem video hem ses içeren formatı ara
+      selectedFormat = formats.find(f => f.itag === parseInt(itag) && f.hasVideo && f.hasAudio);
+    } else {
+      // Ses formatı için sadece ses içeren formatı ara
+      selectedFormat = formats.find(f => f.itag === parseInt(itag) && f.hasAudio && !f.hasVideo);
+    }
+
+    if (!selectedFormat) {
       return res.status(400).json({
         error: 'Format Not Found',
-        details: `İstenen format bulunamadı: ${itag}`,
+        details: `İstenen itag: ${itag}, Medya tipi: ${mediaType}`,
         availableFormats: {
-          video: info.formats.filter(f => f.hasVideo).map(f => f.itag),
-          audio: info.formats.filter(f => f.hasAudio).map(f => f.itag),
+          video: formats.filter(f => f.hasVideo && f.hasAudio).map(f => f.itag),
+          audio: formats.filter(f => f.hasAudio && !f.hasVideo).map(f => f.itag),
         },
-      });
-    }
-
-    // Format tipini kontrol et
-    if (mediaType === 'video' && !format.hasVideo) {
-      return res.status(400).json({
-        error: 'Invalid Format Type',
-        details: 'Seçilen format video formatı değil',
-      });
-    }
-
-    if (mediaType === 'audio' && !format.hasAudio) {
-      return res.status(400).json({
-        error: 'Invalid Format Type',
-        details: 'Seçilen format ses formatı değil',
       });
     }
 
     // Benzersiz dosya adı oluştur
     const fileExtension = mediaType === 'video' ? 'mp4' : 'mp3';
     const fileName = `${uuidv4()}.${fileExtension}`;
-    tempFilePath = path.join(TEMP_DIR, fileName);
+    const tempFilePath = path.join(TEMP_DIR, fileName);
     console.log('Geçici dosya yolu:', tempFilePath);
 
     // Medyayı indir
     const stream = ytdl(mediaUrl, { 
-      format,
+      format: selectedFormat,
       requestOptions: {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -178,31 +184,24 @@ app.post('/api/download', async (req, res) => {
       }
     });
 
-    fileStream = fs.createWriteStream(tempFilePath);
+    const fileStream = fs.createWriteStream(tempFilePath);
     console.log('Dosya stream oluşturuldu');
 
-    // Stream hata yönetimi
-    stream.on('error', (error) => {
-      console.error('Stream hatası:', error);
-      if (fileStream) {
-        fileStream.end();
-      }
-      if (tempFilePath && fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
-    });
-
-    // İndirme işlemi
     await new Promise<void>((resolve, reject) => {
-      stream.pipe(fileStream!);
+      stream.pipe(fileStream);
       
-      fileStream!.on('finish', () => {
+      fileStream.on('finish', () => {
         console.log('Dosya indirme tamamlandı');
         resolve();
       });
 
-      fileStream!.on('error', (error) => {
+      fileStream.on('error', (error) => {
         console.error('Dosya yazma hatası:', error);
+        reject(error);
+      });
+
+      stream.on('error', (error) => {
+        console.error('Stream hatası:', error);
         reject(error);
       });
     });
@@ -222,30 +221,20 @@ app.post('/api/download', async (req, res) => {
       filePath: tempFilePath,
       mimeType,
       contentLength: stats.size.toString(),
-      downloadUrl: `/media/${fileName}`,
+      downloadUrl: `/media/${fileName}`, // /api öneki olmadan
     });
   } catch (error) {
-    console.error('İndirme hatası:', error);
+    console.error('Medya URL alma hatası:', error);
     
-    // Hata durumunda geçici dosyayı sil
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlinkSync(tempFilePath);
-    }
-
     res.status(500).json({
       error: 'Server Error',
-      details: error instanceof Error ? error.message : 'Medya indirilemedi',
+      details: error instanceof Error ? error.message : 'Medya URL\'si alınamadı',
     });
-  } finally {
-    // Stream'i kapat
-    if (fileStream) {
-      fileStream.end();
-    }
   }
 });
 
 // Geçici dosyayı indir
-app.get('/api/media/:fileName', (req, res) => {
+app.get('/media/:fileName', (req, res) => {
   try {
     const filePath = path.join(TEMP_DIR, req.params.fileName);
     console.log('Dosya indirme isteği:', filePath);
