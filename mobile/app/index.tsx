@@ -31,7 +31,7 @@ export default function HomeScreen() {
 		// URL'yi kontrol ederek video sayfasında olup olmadığımızı belirle
 		const isYoutubeVideoPage =
 			navState.url.includes("youtube.com/watch") ||
-			navState.url.includes("youtu.be/");
+			navState.url.includes("youtu.be/")
 
 		console.log("Sayfa yüklendi:", navState.url);
 		console.log("Video sayfası mı?", isYoutubeVideoPage);
