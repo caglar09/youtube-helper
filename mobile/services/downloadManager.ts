@@ -55,7 +55,7 @@ class DownloadManager {
       const savedJobs = await dbService.getAllJobs();
       this.jobs = savedJobs;
       console.log(`${this.jobs.length} iş veritabanından yüklendi`);
-      
+
       // Yarım kalan işleri tekrar kuyruğa ekle
       this.jobs.forEach(job => {
         if (job.status === 'downloading') {
@@ -63,7 +63,7 @@ class DownloadManager {
           this.updateJobStatus(job.id, 'queued');
         }
       });
-      
+
       // Kuyruğu kontrol et
       this.checkQueue();
     } catch (error) {
@@ -80,7 +80,7 @@ class DownloadManager {
     try {
       // Video bilgilerini al
       const mediaInfo = await getMediaInfo(videoUrl);
-      
+
       // Yeni indirme işi oluştur
       const job: DownloadJob = {
         id: `job-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -97,16 +97,16 @@ class DownloadManager {
 
       // İşi kuyruğa ekle
       this.jobs.push(job);
-      
+
       // Veritabanına kaydet
       await dbService.saveJob(job);
-      
+
       // İndirme kuyruğunu kontrol et ve gerekirse indirmeyi başlat
       this.checkQueue();
-      
+
       // İş eklendiğini bildir
       this.eventEmitter.emit('job-added', job);
-      
+
       return job;
     } catch (error) {
       console.error('Kuyruğa ekleme hatası:', error);
@@ -120,7 +120,7 @@ class DownloadManager {
     if (this.activeDownloads < this.maxConcurrentDownloads) {
       // Sıradaki 'queued' durumundaki işi bul
       const nextJob = this.jobs.find(job => job.status === 'queued');
-      
+
       if (nextJob) {
         // İndirmeyi başlat
         this.startDownload(nextJob);
@@ -133,32 +133,32 @@ class DownloadManager {
     try {
       // İş durumunu güncelle
       this.updateJobStatus(job.id, 'downloading');
-      
+
       // Aktif indirme sayısını artır
       this.activeDownloads += 1;
-      
+
       // Güvenli bir dosya adı oluştur
       const fileExtension = job.mediaType === 'video' ? 'mp4' : 'mp3';
       const safeName = job.title
         .replace(/[^a-z0-9]/gi, '_')
         .toLowerCase()
         .substring(0, 50); // Çok uzun isimlerden kaçınmak için kısalt
-      
+
       const fileName = `${safeName}_${Date.now()}.${fileExtension}`;
       const filePath = `${this.tempDir}${fileName}`;
-      
+
       console.log('İndirme başlıyor:', { job: job.id, title: job.title, filePath });
-      
+
       try {
         // Sunucudan medya URL'sini al
         console.log(`İndirme URL'si talep ediliyor: URL=${job.url}, itag=${job.format.itag}, mediaType=${job.mediaType}`);
         const downloadUrl = await downloadMedia(job.url, job.format.itag, job.mediaType);
         console.log('İndirme URL\'si alındı:', downloadUrl);
-        
+
         if (!downloadUrl) {
           throw new Error('Geçerli bir indirme URL\'si alınamadı');
         }
-        
+
         // İndirme işlemini başlat
         const downloadResumable = FileSystem.createDownloadResumable(
           downloadUrl,
@@ -173,22 +173,22 @@ class DownloadManager {
             this.updateJobProgress(job.id, progress);
           }
         );
-        
+
         // İndirmeyi gerçekleştir
         console.log('İndirme başlatılıyor...');
         const result = await downloadResumable.downloadAsync();
         console.log('İndirme sonucu:', result);
-        
+
         if (!result) {
           throw new Error('İndirme başarısız oldu: Sonuç alınamadı');
         }
-        
+
         // İndirilen dosyanın gerçekten var olup olmadığını kontrol et
         const fileInfo = await FileSystem.getInfoAsync(result.uri);
         if (!fileInfo.exists || fileInfo.size === 0) {
           throw new Error('İndirilen dosya bulunamadı veya boş');
         }
-        
+
         // İndirme başarılı olduysa, işi güncelle
         this.updateJob(job.id, {
           status: 'completed',
@@ -196,33 +196,35 @@ class DownloadManager {
           filePath: result.uri,
           updatedAt: new Date()
         });
-        
+
         // İndirme tamamlandı bildirimini yayınla
+       setTimeout(() => {
         this.eventEmitter.emit('job-completed', this.getJob(job.id));
+       }, 500);
       } catch (downloadError: any) {
         console.error(`Medya indirme hatası (${job.id}):`, downloadError);
         throw new Error(`İndirme hatası: ${downloadError.message}`);
       }
-      
+
     } catch (error: any) {
       console.error(`İndirme hatası (${job.id}):`, error);
-      
+
       // Hata mesajını hazırla
       let errorMessage = error.message || 'Bilinmeyen hata';
-      
+
       // Hata durumunda işi güncelle
       this.updateJob(job.id, {
         status: 'failed',
         error: errorMessage,
         updatedAt: new Date()
       });
-      
+
       // Hata bildirimini yayınla
       this.eventEmitter.emit('job-error', this.getJob(job.id));
     } finally {
       // Aktif indirme sayısını azalt
       this.activeDownloads -= 1;
-      
+
       // Kuyruğu tekrar kontrol et
       this.checkQueue();
     }
@@ -243,7 +245,8 @@ class DownloadManager {
   // İşi günceller
   private async updateJob(jobId: string, updates: Partial<DownloadJob>) {
     const jobIndex = this.jobs.findIndex(job => job.id === jobId);
-    
+    console.log("jobInfo", { jobId, jobIndex, currentJobs: this.jobs.map(s => s.id) });
+
     if (jobIndex !== -1) {
       // Hafızadaki işi güncelle
       this.jobs[jobIndex] = {
@@ -251,7 +254,7 @@ class DownloadManager {
         ...updates,
         updatedAt: new Date()
       };
-      
+
       // Veritabanındaki işi güncelle
       try {
         await dbService.updateJob(jobId, updates);
@@ -265,7 +268,7 @@ class DownloadManager {
   public async getJob(jobId: string): Promise<DownloadJob | undefined> {
     // Önce hafızada ara
     let job = this.jobs.find(job => job.id === jobId);
-    
+
     // Bulunamadıysa veritabanında ara
     if (!job) {
       try {
@@ -279,7 +282,7 @@ class DownloadManager {
         console.error(`İş getirme hatası (${jobId}):`, error);
       }
     }
-    
+
     return job;
   }
 
@@ -292,14 +295,14 @@ class DownloadManager {
     } catch (error) {
       console.error('İşleri getirme hatası:', error);
     }
-    
+
     return [...this.jobs];
   }
 
   // İşi siler
   public async removeJob(jobId: string): Promise<boolean> {
     const jobIndex = this.jobs.findIndex(job => job.id === jobId);
-    
+
     if (jobIndex !== -1) {
       // Tamamlanmış işlere ait dosyaları sil
       const job = this.jobs[jobIndex];
@@ -308,45 +311,45 @@ class DownloadManager {
           console.error(`Dosya silme hatası (${job.id}):`, err);
         });
       }
-      
+
       // İşi listeden çıkar
       this.jobs.splice(jobIndex, 1);
-      
+
       // Veritabanından sil
       try {
         await dbService.deleteJob(jobId);
       } catch (error) {
         console.error(`İş veritabanı silme hatası (${jobId}):`, error);
       }
-      
+
       // Bildirim yayınla
       this.eventEmitter.emit('job-removed', job);
       return true;
     }
-    
+
     return false;
   }
 
   // İşi iptal eder
   public async cancelJob(jobId: string): Promise<boolean> {
     const job = await this.getJob(jobId);
-    
+
     if (job && (job.status === 'queued' || job.status === 'downloading')) {
       this.updateJobStatus(jobId, 'cancelled');
       return true;
     }
-    
+
     return false;
   }
 
   // Dosyayı kullanıcı ile paylaş
   public async shareFile(jobId: string): Promise<void> {
     const job = await this.getJob(jobId);
-    
+
     if (!job || !job.filePath || job.status !== 'completed') {
       throw new Error('Paylaşılacak tamamlanmış bir dosya bulunamadı');
     }
-    
+
     try {
       if (await Sharing.isAvailableAsync()) {
         // Dosya bilgilerini kontrol et
@@ -354,20 +357,20 @@ class DownloadManager {
         if (!fileInfo.exists) {
           throw new Error('Dosya bulunamadı: Geçici dosya silinmiş olabilir');
         }
-        
+
         console.log('Paylaşılacak dosya:', job.filePath);
         console.log('Dosya bilgileri:', fileInfo);
-        
+
         // MIME tipini belirle
         let mimeType = job.mediaType === 'video' ? 'video/mp4' : 'audio/mpeg';
-        
+
         // Paylaşım dialogunu aç
         await Sharing.shareAsync(job.filePath, {
           mimeType,
           dialogTitle: `${job.title} paylaşılıyor`,
           UTI: job.mediaType === 'video' ? 'public.mpeg-4' : 'public.mp3'
         });
-        
+
         console.log('Paylaşım dialog açıldı');
       } else {
         throw new Error('Dosya paylaşımı bu cihazda desteklenmiyor');
@@ -381,42 +384,42 @@ class DownloadManager {
   // Dosyayı medya kütüphanesine kaydet
   public async saveToMediaLibrary(jobId: string): Promise<string> {
     const job = await this.getJob(jobId);
-    
+
     if (!job || !job.filePath || job.status !== 'completed') {
       throw new Error('Kaydedilecek tamamlanmış bir dosya bulunamadı');
     }
-    
+
     // Dosya varlığını kontrol et
     const fileInfo = await FileSystem.getInfoAsync(job.filePath);
     if (!fileInfo.exists) {
       throw new Error('Dosya bulunamadı: Geçici dosya silinmiş olabilir');
     }
-    
+
     console.log('Kaydedilecek dosya:', job.filePath);
     console.log('Dosya bilgileri:', fileInfo);
-    
+
     try {
       // Gerekli izinleri iste
       const { status } = await MediaLibrary.requestPermissionsAsync();
-      
+
       if (status !== 'granted') {
         throw new Error('Medya kütüphanesine erişim izni verilmedi');
       }
-      
+
       // Dosyayı medya kütüphanesine kaydet
       const asset = await MediaLibrary.createAssetAsync(job.filePath);
       console.log('Asset yaratıldı:', asset);
-      
+
       // Album oluştur veya var olan albüme ekle
       const albumName = job.mediaType === 'video' ? 'YouTube Videos' : 'YouTube Music';
       const album = await MediaLibrary.getAlbumAsync(albumName);
-      
+
       if (album) {
         await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
       } else {
         await MediaLibrary.createAlbumAsync(albumName, asset, false);
       }
-      
+
       console.log('Medya kütüphanesine kaydedildi');
       return asset.uri;
     } catch (error: any) {
@@ -429,7 +432,7 @@ class DownloadManager {
   public async filterJobsByStatus(status: DownloadJob['status']): Promise<DownloadJob[]> {
     // Tüm işleri veritabanından yenile
     await this.getAllJobs();
-    
+
     // Duruma göre filtrele
     return this.jobs.filter(job => job.status === status);
   }

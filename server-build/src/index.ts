@@ -22,7 +22,7 @@ interface FormatInfo {
 }
 
 const app = express();
-const port = process.env.PORT ?? 3000;
+const port = 3000;
 
 // Geçici dosyalar için klasör
 const TEMP_DIR = path.join(__dirname, '../temp');
@@ -68,9 +68,6 @@ setInterval(cleanupTempFiles, 60 * 60 * 1000);
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send('YouTube Downloader API');
-});
 // Medya bilgilerini getir
 app.post('/api/media-info', async (req, res) => {
   try {
@@ -303,8 +300,6 @@ app.get('/media/:fileName', (req, res) => {
     });
   }
 });
-
-
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);

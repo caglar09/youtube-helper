@@ -4,16 +4,7 @@ import { Platform } from 'react-native';
 
 // API URL'sini platformlara göre ayarla
 const getApiUrl = () => {
-  if (Platform.OS === 'android') {
-    // Android'de 10.0.2.2 emülatörün host makinesine erişmesi için kullanılır
-    return 'http://10.0.2.2:3000/api';
-  } else if (Platform.OS === 'ios') {
-    // iOS simülatörde localhost kullanılabilir
-    return 'http://localhost:3000/api';
-  } else {
-    // Varsayılan değer
-    return 'http://localhost:3000/api';
-  }
+  return `${(process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000')}/api`;
 };
 
 const API_URL = getApiUrl();
@@ -61,7 +52,7 @@ export interface MediaError {
 export const getMediaInfo = async (mediaUrl: string): Promise<MediaInfo> => {
   try {
     console.log('Medya bilgisi isteniyor:', mediaUrl);
-    
+
     const response = await fetch(`${API_URL}/media-info`, {
       method: 'POST',
       headers: {
@@ -71,10 +62,10 @@ export const getMediaInfo = async (mediaUrl: string): Promise<MediaInfo> => {
     });
 
     console.log('API yanıtı alındı. Status:', response.status);
-    
+
     const responseData = await response.json();
     console.log('API yanıt verisi:', JSON.stringify(responseData, null, 2));
-    
+
     if (!response.ok) {
       console.error('API hata yanıtı:', responseData);
       const errorData: MediaError = responseData;
@@ -91,7 +82,7 @@ export const getMediaInfo = async (mediaUrl: string): Promise<MediaInfo> => {
         audio: []
       }
     };
-    
+
     // videoFormats ve audioFormats alanlarını kontrol et
     if (responseData.videoFormats && Array.isArray(responseData.videoFormats)) {
       result.formats.video = responseData.videoFormats;
@@ -102,7 +93,7 @@ export const getMediaInfo = async (mediaUrl: string): Promise<MediaInfo> => {
     } else {
       console.warn('Video formatları bulunamadı veya geçersiz formatta');
     }
-    
+
     if (responseData.audioFormats && Array.isArray(responseData.audioFormats)) {
       result.formats.audio = responseData.audioFormats;
       console.log(`${responseData.audioFormats.length} ses formatı bulundu`);
@@ -112,7 +103,7 @@ export const getMediaInfo = async (mediaUrl: string): Promise<MediaInfo> => {
     } else {
       console.warn('Ses formatları bulunamadı veya geçersiz formatta');
     }
-    
+
     // API yanıtını doğrudan dön (formatları uyumluluk için de ekleyerek)
     return {
       ...responseData,
@@ -155,11 +146,11 @@ export const downloadMedia = async (mediaUrl: string, itag: string, mediaType: '
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
       console.error('Sunucu JSON yanıtı vermedi:', contentType);
-      
+
       // İçeriği text olarak al ve logla
       const textResponse = await response.text();
       console.error('Sunucu yanıt içeriği (text):', textResponse);
-      
+
       throw new Error(`Sunucu geçersiz yanıt verdi. İçerik tipi: ${contentType}`);
     }
 
@@ -172,21 +163,21 @@ export const downloadMedia = async (mediaUrl: string, itag: string, mediaType: '
     // Sunucudan indirme URL'sini al
     const responseData = await response.json();
     console.log('Sunucu indirme yanıtı:', responseData);
-    
+
     // İndirme URL'sini döndür
     const { downloadUrl } = responseData;
-    
+
     if (!downloadUrl) {
       throw new Error('Sunucudan geçerli bir indirme URL\'si alınamadı');
     }
-    
+
     // URL'yi düzgün şekilde oluştur
     // Sunucu downloadUrl /media/file-name.mp4 formatında dönüyor
     // API_URL sonunda /api var, ama bunu çıkarıp sunucu kök URL'sine eklememiz gerekiyor
     const serverBaseUrl = API_URL.replace(/\/api$/, ''); // /api son ekini kaldır
     const fullDownloadUrl = `${serverBaseUrl}${downloadUrl}`;
     console.log('İndirme için tam URL:', fullDownloadUrl);
-    
+
     return fullDownloadUrl;
   } catch (error) {
     console.error('Medya indirme hatası:', error);
