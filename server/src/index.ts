@@ -86,34 +86,62 @@ app.post('/api/media-info', async (req, res) => {
     const info = await ytdl.getInfo(mediaUrl);
     const formats = info.formats;
 
-    // Video ve ses formatlarını ayır
-    const videoFormats = formats
-      .filter(format => format.hasVideo && format.hasAudio)
-      .map(format => ({
-        itag: format.itag,
-        quality: format.qualityLabel || 'Unknown',
-        mimeType: format.mimeType || '',
-        contentLength: format.contentLength || '0',
-        hasAudio: format.hasAudio,
-        hasVideo: format.hasVideo,
-        container: format.container || 'mp4',
-        bitrate: format.bitrate,
-        fps: format.fps,
-        audioBitrate: format.audioBitrate,
-      }));
+    // Video ve ses formatlarını ayır ve tekilleştir
+    const uniqueVideoFormats = new Map<string, FormatInfo>();
+    formats
+      .filter(format => format.hasVideo && format.hasAudio && format.qualityLabel) // Sadece kalitesi bilinenleri al
+      .forEach(format => {
+        const quality = format.qualityLabel!;
+        const currentFormat: FormatInfo = {
+          itag: format.itag,
+          quality: format.qualityLabel || 'Unknown',
+          mimeType: format.mimeType || '',
+          contentLength: format.contentLength || '0',
+          hasAudio: format.hasAudio,
+          hasVideo: format.hasVideo,
+          container: format.container || 'mp4',
+          bitrate: format.bitrate,
+          fps: format.fps,
+          audioBitrate: format.audioBitrate,
+        };
 
-    const audioFormats = formats
-      .filter(format => format.hasAudio && !format.hasVideo)
-      .map(format => ({
-        itag: format.itag,
-        quality: format.audioQuality || 'Unknown',
-        mimeType: format.mimeType || '',
-        contentLength: format.contentLength || '0',
-        hasAudio: format.hasAudio,
-        hasVideo: format.hasVideo,
-        container: format.container || 'mp3',
-        audioBitrate: format.audioBitrate,
-      }));
+        // Eğer bu kalitede bir format yoksa veya mevcut formatın bitrate'i daha düşükse ekle/güncelle
+        const existing = uniqueVideoFormats.get(quality);
+        if (!existing || (currentFormat.bitrate && existing.bitrate && currentFormat.bitrate > existing.bitrate)) {
+          uniqueVideoFormats.set(quality, currentFormat);
+        }
+      });
+
+    const uniqueAudioFormats = new Map<string, FormatInfo>();
+    formats
+      .filter(format => format.hasAudio && !format.hasVideo && format.audioBitrate) // Sadece audioBitrate'i olanları al
+      .forEach(format => {
+        // Kaliteyi audioBitrate'e göre belirleyelim, daha tutarlı bir gruplama için
+        const qualityKey = `${format.audioBitrate}kbps`; // Benzersiz anahtar oluştur
+        const currentFormat: FormatInfo = {
+          itag: format.itag,
+          // quality alanını audioBitrate olarak ayarlayabiliriz veya audioQuality kullanabiliriz
+          quality: format.audioQuality || `${format.audioBitrate}kbps`,
+          mimeType: format.mimeType || '',
+          contentLength: format.contentLength || '0',
+          hasAudio: format.hasAudio,
+          hasVideo: format.hasVideo,
+          container: format.container || 'mp3', // veya 'm4a', 'webm' etc.
+          audioBitrate: format.audioBitrate,
+        };
+
+        // Eğer bu kalitede bir format yoksa veya mevcut formatın audioBitrate'i daha düşükse ekle/güncelle
+        // (Genelde en yüksek bitrate tercih edilir, bu yüzden '>' kullanıyoruz)
+        const existing = uniqueAudioFormats.get(qualityKey);
+        if (!existing || (currentFormat.audioBitrate && existing.audioBitrate && currentFormat.audioBitrate > existing.audioBitrate)) {
+          uniqueAudioFormats.set(qualityKey, currentFormat);
+        }
+      });
+
+    // Map'lerden array oluştur
+    const videoFormats = Array.from(uniqueVideoFormats.values()).sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0)); // Kaliteye göre sırala (yüksekten düşüğe)
+    const audioFormats = Array.from(uniqueAudioFormats.values()).sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0)); // Bitrate'e göre sırala (yüksekten düşüğe)
+
 
     res.json({
       title: info.videoDetails.title,
